@@ -32,7 +32,7 @@ cf_ddns_ip () {
   ip=$(curl -s https://api.ipify.org || curl -s https://ipv4.icanhazip.com/)
 
   if [ "${ip}" == "" ]; then 
-    logger -s "DDNS Updater: No public IP found"
+    logger_output="DDNS Updater: No public IP found"
     debug_output+="$logger_output\n"
     logger -s "$logger_output"
     #no point going on if can not get ip
