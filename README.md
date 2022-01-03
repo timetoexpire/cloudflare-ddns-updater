@@ -6,7 +6,7 @@ This script is used to update dynamic DNS entries for accounts on Cloudflare.
 ## Installation
 
 ```bash
-git clone https://github.com/K0p1-Git/cloudflare-ddns-updater.git
+git clone https://github.com/timetoexpire/cloudflare-ddns-updater.git
 ```
 
 ## Usage
