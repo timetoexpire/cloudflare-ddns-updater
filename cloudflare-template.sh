@@ -730,7 +730,15 @@ cf_exec () {
   done
 }
 
+check_for_curl () {
+  if ! command -v curl &> /dev/null; then
+    echo $'curl is required for this to run.\n(Debian)# apt install curl\n(RHEL)# yum install curl\n(OpenSUSE)# zypper install curl\n(ArchLinux)# pacman -Sy curl\n'
+    exit
+  fi
+}
+
 cf_kickstart () {
+  check_for_curl
   cf_setting_internal
   cf_setting_parameter
   cf_setting_file 
