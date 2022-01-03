@@ -1,5 +1,5 @@
 # Cloudflare Dynamic DNS IP Updater
-<img alt="GitHub" src="https://img.shields.io/github/license/K0p1-Git/cloudflare-ddns-updater?color=black"> <img alt="GitHub last commit (branch)" src="https://img.shields.io/github/last-commit/K0p1-Git/cloudflare-ddns-updater/main"> <img alt="GitHub contributors" src="https://img.shields.io/github/contributors/K0p1-Git/cloudflare-ddns-updater">
+<img alt="GitHub" src="https://img.shields.io/github/license/timetoexpire/cloudflare-ddns-updater?color=black"> <img alt="GitHub last commit (branch)" src="https://img.shields.io/github/last-commit/timetoexpire/cloudflare-ddns-updater/main"> <img alt="GitHub contributors" src="https://img.shields.io/github/contributors/timetoexpire/cloudflare-ddns-updater">
 
 This script is used to update dynamic DNS entries for accounts on Cloudflare.
 
@@ -10,6 +10,9 @@ git clone https://github.com/timetoexpire/cloudflare-ddns-updater.git
 ```
 
 ## Usage
+
+TODO Need to edit this
+
 This script is used with crontab. Specify the frequency of execution through crontab.
 
 ```bash
@@ -30,5 +33,7 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 ## Reference
 This script was made with reference from [Keld Norman](https://www.youtube.com/watch?v=vSIBkH7sxos) video.
 
+This was forked from [Jason K](https://github.com/K0p1-Git/cloudflare-ddns-updater) script.
+
 ## License
-[MIT](https://github.com/K0p1-Git/cloudflare-ddns-updater/blob/main/LICENSE)
+[MIT](https://github.com/timetoexpire/cloudflare-ddns-updater/blob/main/LICENSE)
