@@ -11,9 +11,19 @@ proxy=false                                        # Set the proxy to true or fa
 slacksitename=""                                   # Title of site "Example Site"
 slackchannel=""                                    # Slack Channel #example
 slackuri=""                                        # URI for Slack WebHook "https://hooks.slack.com/services/xxxxx"
-config_file=""                                     # file that is config file
+config_file=""
+
+email_username=""                                  # email account username
+email_password=""                                  # email account password
+email_smtp=""                                      # email SMTP server
+email_port=""                                      # email SMTP port number
+email_fromName=""                                  # email poster name
+email_fromAddress=""                               # email poster (email) address
+email_toName=""                                    # email recive name
+email_toAddress=""                                 # email recive (email) address, if empty will use one defined in $email_fromAddress
 
 parameter_input=("$@")
+curl_max_time=30.5
 
 cf_ddns_ip () {
   ###########################################
@@ -104,7 +114,7 @@ cf_ddns_update () {
   debug_output+="cf_ddns_update : $update\n"
 }
 
-cf_ddns_status () {
+cf_ddns_status_slack () {
   ###########################################
   ## Report the status
   ###########################################
@@ -120,7 +130,8 @@ cf_ddns_status () {
         "text" : "'"$slacksitename"' DDNS Update Failed: '$record_name': '$record_identifier' ('$ip')."
       }'
     fi
-    exit_code 1;;
+    #exit_code 1 # Now done in cf_ddns_status
+    ;;
   *)
     logger_output="DDNS Updater: $ip $record_name DDNS updated."
     debug_output+="$logger_output\n"
@@ -132,11 +143,32 @@ cf_ddns_status () {
         "text" : "'"$slacksitename"' Updated: '$record_name''"'"'s'""' new IP Address is '$ip'"
       }'
     fi
-    exit_code 0;;
+    #exit_code 0 # Now done in cf_ddns_status
+    ;;
   esac
 }
 
-cf_ddns() {
+cf_ddns_status () {
+  #send message via slack
+  if [[ $slackuri != "" ]]; then
+    cf_ddns_status_slack
+  fi
+  #send messgae via email
+  if [[ $email_username != "" ]]; then
+    cf_ddns_status_email
+  fi
+
+  case "$update" in
+  *"\"success\":false"*)
+    exit_code 1
+    ;;
+  *)
+    exit_code 0
+    ;;
+  esac
+}
+
+cf_ddns_main () {
   if [ ${#ip} -eq 0 ]; then
   #Only worth getting current IP address with first domain
     cf_ddns_ip
@@ -186,7 +218,7 @@ exit_code () {
 
 
 
-cf_counting_sheep () { 
+cf_counting_sheep () {
   datestart=$(date +%Y/%m/%d\ %H:%M:%S)
   dateend=$(date --date="+$parameter_value seconds" +"%Y-%m-%d %H:%M:%S")
   logger_output="DDNS Updater: counting sheep ($parameter_value) $datestart : $dateend"
@@ -281,7 +313,7 @@ cf_record_name () {
   record_name=$parameter_value
   cf_err_human
   if [ "$err_is_human" -eq 0 ]; then
-    cf_ddns
+    cf_ddns_main
   fi
   #TODO **************************************************************************************************************************
 }
@@ -367,7 +399,6 @@ cf_parameter_commands () {
     "purge")
       cf_to_null
       ;;
-    
     "#")
       cf_remark_statment
       ;;
@@ -438,8 +469,8 @@ cf_err_human () {
       logger -s "$logger_output"
     fi
   fi
-    
-  if [ ${#record_name} -eq 0 ]; then 
+
+  if [ ${#record_name} -eq 0 ]; then
     err_is_human=1
     logger_output="DDNS Updater: ERROR [record_name] record not has been defined"
     logger -s "$logger_output"
@@ -543,7 +574,7 @@ cf_setting_internal () {
 cf_setting_parameter () {
   debug_output_local="cf_setting_parameter:"
   argument_total=${#parameter_input[@]}
-  
+
   if [ "$argument_total" -gt 0 ] ; then
     cf_setting_parameter_array=('-entrypoint=_settingparameter')
     for (( argument_depth=0 ; argument_depth < argument_total ; argument_depth++ )); do
@@ -552,7 +583,7 @@ cf_setting_parameter () {
       # $'\055') # Hyphen -
       if [[ $first_character = $'\055' ]]; then
         retain_setting_to_check="$parameter_current"
-        retain_setting 
+        retain_setting
         activate_instantly_settings
         cf_setting_parameter_array+=("${retain_setting_output}")
       else
@@ -599,7 +630,7 @@ cf_setting_file () {
           # $'\055') # Hyphen -
           if [[ $first_character = $'\055' ]]; then
             retain_setting_to_check="$string_removed_whitespace"
-            retain_setting 
+            retain_setting
             activate_instantly_settings
           else
             retain_setting_output=("-record_name=${string_removed_whitespace}")
@@ -628,7 +659,7 @@ string_reset_whitespace () {
 #o: within_quatation_mark
 #o: string_remove_whitspace
 #o: string_length
-  
+
   string_exit=0
   string_x_pos=0
   string_where_equal_sign=0
@@ -672,11 +703,11 @@ string_non_whitespace (){
   # \042 Quatation mark
   if [[ $string_character == $'\042' ]]; then
     within_quatation_mark=$(( ! $within_quatation_mark ))
-  else 
+  else
     #doing after else will remove remove Quatation Mark, otherwise if want it remove else place after fi
     string_removed_whitespace+=$string_character
   fi
-  
+
   # \075 Equal Sign
   # it only valied if not already been set and quatation mark is false
   if [[ $string_character == $'\075' ]] && (( ! $within_quatation_mark )); then
@@ -702,21 +733,19 @@ retain_setting () {
       retain_setting_output=$config_file
     fi
   fi
-
-  
 }
 
 activate_instantly_settings () {
   if [ "${retain_setting_to_check:0:6}" == "-debug" ]; then
     debug_mode_active=1
-  fi                   
+  fi
 
   if [ "${retain_setting_to_check:0:9}" == "-tolerant" ]; then
     cf_tolerant
   fi
 }
 
-cf_exec () {  
+cf_exec () {
   for (( item=0; item < ${#cf_setting_internal_array[@]}; item++ )); do
     cf_parameter_commands "${cf_setting_internal_array[item]}"
   done
@@ -736,6 +765,99 @@ check_for_curl () {
     exit
   fi
 }
+
+
+get_date_strings () {
+  # date_utc_nonhuman=$(date -u +%Y%m%d%H%M%S)
+  date_utc=$(date -u +"%Y-%m-%d %H:%M:%S %Z")
+  date_utc_subject=$(date -u +%Y%m%d%-H%M)
+  # date_local=$(date +"%c %z")
+}
+
+email_setSubject () {
+  email_subjectLine="CF-DDNS [$record_name] $date_utc_subject "
+}
+
+email_setMessage () {
+  email_messageBody=$'Account: '$auth_email$'\n'
+  email_messageBody+=$'Type A: '$record_name$'\n'
+  # email_messageBody+=$'Type AAAA: '$domain_name$'\n' # TODO
+  email_messageBody+=$'IP address: '$ip' ('$old_ip$')\n'
+  email_messageBody+=$'Time: '$date_utc$'\n'
+  email_messageBody+=$'Hostname: '$HOSTNAME$'\n'
+
+  case "$update" in
+  *"\"success\":false"*)
+    email_messageBody+=$'Status: FAILED\n'
+    ;;
+  *)
+    email_messageBody+=$'Status: Success\n'
+    ;;
+  esac
+}
+
+cf_ddns_status_email () {
+  if [[ $email_username != "" ]]; then
+    if [[ $email_fromAddress == "" ]]; then
+      logger_output="DDNS Updater : There is no from e-mail address been defiened [email_fromAddress]"
+      debug_output+="$logger_output\n"
+      logger -s "$logger_output"
+    fi
+
+    if [[ $email_toAddress == "" ]]; then
+      email_toAddress=$email_fromAddress
+    fi
+
+    get_date_strings
+
+    email_setSubject
+    email_setMessage
+
+    curl -s --max-time $curl_max_time -url smtps://$email_smtp:$email_port --ssl-reqd \
+      --mail-from $email_fromAddress \
+      --mail-rcpt $email_toAddress \
+      --user $email_username:$email_password \
+      -H "Subject: $email_subjectLine" \
+      -H "From: $email_fromName <$email_fromAddress>" \
+      -H "To: $email_toName <$email_toAddress>" \
+      -F '=(;type=multipart/mixed' \
+      -F "=$email_messageBody;" \
+      -F '=)'
+
+    curl_errorcode=${?}
+
+    if [ $curl_errorcode -ne 0 ]; then
+      case $curl_errorcode in
+        3)
+          curl_errorhuman="smtp server has not been defined"
+          ;;
+        6)
+          curl_errorhuman="This is not a vaild host name"
+          ;;
+        7)
+          curl_errorhuman="This service is unrespotive"
+          ;;
+        28)
+          curl_errorhuman="Did not connect within timeout"
+          ;;
+        67)
+          curl_errorhuman="The username/password is invailed"
+          ;;
+        *)
+          curl_errorhuman="No idea what has gone wrong but it has, PANIC!"
+          ;;
+      esac
+      #curl_errorhuman+=$'\nSMTP: ['$sesSMTP']'
+      #curl_errorhuman+=$'\nPort: ['$sesPort']'
+      #curl_errorhuman+=$'\nAccess: ['$sesAccess']'
+      logger_output="DDNS Updater: e-mail $curl_errorcode :- $curl_errorhuman"
+      debug_output+="$logger_output\n"
+      logger -s "$logger_output"
+      exit_code 1
+    fi
+  fi
+}
+
 
 cf_kickstart () {
   check_for_curl
@@ -758,4 +880,7 @@ cf_kickstart
 #echo "paramter :${cf_setting_parameter_array[*]}"
 #echo "file :${cf_setting_file_array[*]}"
 #exit
+
+
+  
 
