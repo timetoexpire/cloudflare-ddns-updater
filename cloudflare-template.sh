@@ -759,10 +759,21 @@ cf_exec () {
   done
 }
 
-check_for_curl () {
-  if ! command -v curl &> /dev/null; then
-    echo $'curl is required for this to run.\n(Debian)# apt install curl\n(RHEL)# yum install curl\n(OpenSUSE)# zypper install curl\n(ArchLinux)# pacman -Sy curl\n'
-    exit
+check_install_command () {
+  ## This is use to make shore for commands are install that are not part of POSIX
+  check_installCommand=$1
+  if [[ -z $check_installCommand ]]; then
+    logger -s "$0 [[check_install_command]]: NullReferenceException; nothing defined [$check_install_command]"
+    exit 1
+  fi
+  if ! command -v "$check_installCommand" &> /dev/null; then
+    check_installCommandMessage="$check_installCommand"$' is required for this to run.\n'
+    check_installCommandMessage+='(Debian)# apt install '"$check_installCommand"$'\n'
+    check_installCommandMessage+='(RHEL)# yum install '"$check_installCommand"$'\n'
+    check_installCommandMessage+='(OpenSUSE)# zypper install '"$check_installCommand"$'\n'
+    check_installCommandMessage+='(ArchLinux)# pacman -Sy '"$check_installCommand"$'\n'
+    echo "$check_installCommandMessage"
+    exit 1
   fi
 }
 
@@ -860,7 +871,7 @@ cf_ddns_status_email () {
 
 
 cf_kickstart () {
-  check_for_curl
+  check_install_command curl
   cf_setting_internal
   cf_setting_parameter
   cf_setting_file 
