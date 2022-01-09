@@ -30,8 +30,9 @@ This script is used with crontab. Specify the frequency of execution through cro
 
 ## Commands
 `bash
-cloudflare-ddns-updater.sh -help
-`
+cloudflare-ddns-updater.sh -help` 
+
+`bash cloudflare-ddns-updater.sh -tolerant mydomain.com -sleep=10 example.com -proxy=false www.example.com -auth_ttl=10 x1.example.com`
 
 [script] help, tolerant, debug, config_file, sleep, rsleep
 
