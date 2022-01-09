@@ -2,6 +2,7 @@
 <img alt="GitHub" src="https://img.shields.io/github/license/timetoexpire/cloudflare-ddns-updater?color=black"> <img alt="GitHub last commit (branch)" src="https://img.shields.io/github/last-commit/timetoexpire/cloudflare-ddns-updater/main"> <img alt="GitHub contributors" src="https://img.shields.io/github/contributors/timetoexpire/cloudflare-ddns-updater">
 
 This script is used to update dynamic DNS entries for accounts on Cloudflare.
+You are able to get status reports via Slack/eMail
 
 ## Installation
 
@@ -26,6 +27,14 @@ This script is used with crontab. Specify the frequency of execution through cro
 # │ │ │ │ │ │
 # * * * * * /bin/bash {Location of the script}
 ```
+
+## Commands
+
+help, tolerant, debug
+sleep, rsleep
+auth_email auth_method, auth_key, auth_identifier, auth_ttl, auth_proxy, purge
+slackuri
+email_username, email_password, email_smtp, email_port, email_fromName, email_toName, email_fromAddress, email_toAddress
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
