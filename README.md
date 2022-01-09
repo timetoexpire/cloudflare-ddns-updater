@@ -29,6 +29,9 @@ This script is used with crontab. Specify the frequency of execution through cro
 ```
 
 ## Commands
+`bash
+cloudflare-ddns-updater.sh -help
+`
 
 [script] help, tolerant, debug, config_file, sleep, rsleep
 
