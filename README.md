@@ -30,15 +30,13 @@ This script is used with crontab. Specify the frequency of execution through cro
 
 ## Commands
 
-help, tolerant, debug
+[script] help, tolerant, debug, config_file, sleep, rsleep
 
-sleep, rsleep
+[Cloudflare] auth_email, auth_method, auth_key, auth_identifier, auth_ttl, auth_proxy, purge
 
-auth_email auth_method, auth_key, auth_identifier, auth_ttl, auth_proxy, purge
+[Slack] slackuri
 
-slackuri
-
-email_username, email_password, email_smtp, email_port, email_fromName, email_toName, email_fromAddress, email_toAddress
+[SMTP] email_username, email_password, email_smtp, email_port, email_fromName, email_toName, email_fromAddress, email_toAddress
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
