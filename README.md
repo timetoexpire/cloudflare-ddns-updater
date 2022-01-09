@@ -31,9 +31,13 @@ This script is used with crontab. Specify the frequency of execution through cro
 ## Commands
 
 help, tolerant, debug
+
 sleep, rsleep
+
 auth_email auth_method, auth_key, auth_identifier, auth_ttl, auth_proxy, purge
+
 slackuri
+
 email_username, email_password, email_smtp, email_port, email_fromName, email_toName, email_fromAddress, email_toAddress
 
 ## Contributing
