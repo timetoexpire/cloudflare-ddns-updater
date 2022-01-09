@@ -8,8 +8,6 @@ zone_identifier=""                                 # Can be found in the "Overvi
 record_name=""                                     # Which record you want to be synced
 ttl="3600"                                         # Set the DNS TTL (seconds)
 proxy=false                                        # Set the proxy to true or false
-slacksitename=""                                   # Title of site "Example Site"
-slackchannel=""                                    # Slack Channel #example
 slackuri=""                                        # URI for Slack WebHook "https://hooks.slack.com/services/xxxxx"
 config_file=""
 
@@ -118,37 +116,33 @@ cf_ddns_status_slack () {
   ###########################################
   ## Report the status
   ###########################################
-  case "$update" in
-  *"\"success\":false"*)
-    logger_output="DDNS Updater: $ip $record_name DDNS failed for $record_identifier ($ip). DUMPING RESULTS:\n$update"
-    debug_output+="$logger_output\n"
-    logger -s "$logger_output"
-    if [[ $slackuri != "" ]]; then
-      curl -L -X POST $slackuri \
-      --data-raw '{
-        "channel": "'$slackchannel'",
-        "text" : "'"$slacksitename"' DDNS Update Failed: '$record_name': '$record_identifier' ('$ip')."
-      }'
-    fi
-    #exit_code 1 # Now done in cf_ddns_status
-    ;;
-  *)
-    logger_output="DDNS Updater: $ip $record_name DDNS updated."
-    debug_output+="$logger_output\n"
-    logger "$logger_output"
-    if [[ $slackuri != "" ]]; then
-      curl -L -X POST $slackuri \
-      --data-raw '{
-        "channel": "'$slackchannel'",
-        "text" : "'"$slacksitename"' Updated: '$record_name''"'"'s'""' new IP Address is '$ip'"
-      }'
-    fi
-    #exit_code 0 # Now done in cf_ddns_status
-    ;;
-  esac
+  set_message_slack
+
+  update_statusSlack=$(curl -s --max-time $curl_max_time -X POST $slackuri -H 'Content-type: application/json' --data "$output_messageBody")
 }
 
 cf_ddns_status () {
+  get_date_strings
+
+  case "$update" in
+  *"\"success\":false"*)
+    # FAILED
+    update_status=1
+
+    logger_output="DDNS Updater: $ip $record_name DDNS failed for $record_identifier ($ip). DUMPING RESULTS:\n$update"
+    debug_output+="$logger_output\n"
+    logger -s "$logger_output"
+    ;;
+  *)
+    # Success
+    update_status=0
+
+    logger_output="DDNS Updater: $ip $record_name DDNS updated."
+    debug_output+="$logger_output\n"
+    logger "$logger_output"
+    ;;
+  esac
+
   #send message via slack
   if [[ $slackuri != "" ]]; then
     cf_ddns_status_slack
@@ -158,14 +152,7 @@ cf_ddns_status () {
     cf_ddns_status_email
   fi
 
-  case "$update" in
-  *"\"success\":false"*)
-    exit_code 1
-    ;;
-  *)
-    exit_code 0
-    ;;
-  esac
+  exit_code $update_status
 }
 
 cf_ddns_main () {
@@ -242,6 +229,14 @@ cf_help () {
   echo "-auth_ttl=X it for this will change it for proceeding domains"
   echo "-auth_proxy=X it for this will change it for proceeding domains"
   echo "-purge will purge current setting for cloudflare"
+  echo "Messaging services (Slack/email)"
+  echo "-slackuri=X Slack webhooks URI"
+  echo "-email_username=X SMTP username"
+  echo "-email_password=X SMTP password"
+  echo "-email_smtp=X SMTP server (domain name/ip)"
+  echo "-email_port=X SMTP port number"
+  echo "-email_fromName / -email_toName=X name of user of that email address (Joe Bloggs / Jane Doe)"
+  echo "-email_fromAddress / -email_toAddress=X email address of that user (joe@example.com / jane@example.org)"
 }
 
 cf_tolerant () {
@@ -342,12 +337,75 @@ cf_remark_statment () {
   debug_output+="REMark: $parameter_value\n"
 }
 
+cf_slack () {
+  slackuri=$parameter_value
+  logger_output="DDNS Updater: [slackuri] ($parameter_value)"
+  logger "$logger_output"
+  debug_ouput+="$logger_output\n"
+}
+
+cf_email_username () {
+  email_username=$parameter_value
+  logger_output="DDNS Updater: [email_username] ($parameter_value)"
+  logger "$logger_output"
+  debug_ouput+="$logger_output\n"
+}
+
+cf_email_password () {
+  email_password=$parameter_value
+  logger_output="DDNS Updater: [email_password] ($parameter_value)"
+  logger "$logger_output"
+  debug_ouput+="$logger_output\n"
+}
+
+cf_email_smtp () {
+  email_smtp=$parameter_value
+  logger_output="DDNS Updater: [email_smtp] ($parameter_value)"
+  logger "$logger_output"
+  debug_ouput+="$logger_output\n"
+}
+
+cf_email_port () {
+  email_port=$parameter_value
+  logger_output="DDNS Updater: [email_port] ($parameter_value)"
+  logger "$logger_output"
+  debug_ouput+="$logger_output\n"
+}
+
+cf_email_fromName () {
+  email_fromName=$parameter_value
+  logger_output="DDNS Updater: [email_fromName] ($parameter_value)"
+  logger "$logger_output"
+  debug_ouput+="$logger_output\n"
+}
+
+cf_email_fromAddress () {
+  email_fromAddress=$parameter_value
+  logger_output="DDNS Updater: [email_fromAddress] ($parameter_value)"
+  logger "$logger_output"
+  debug_ouput+="$logger_output\n"
+}
+
+cf_email_toName () {
+  email_toName=$parameter_value
+  logger_output="DDNS Updater: [email_toName] ($parameter_value)"
+  logger "$logger_output"
+  debug_ouput+="$logger_output\n"
+}
+
+cf_email_toAddress () {
+  email_toAddress=$parameter_value
+  logger_output="DDNS Updater: [email_toAddress] ($parameter_value)"
+  logger "$logger_output"
+  debug_ouput+="$logger_output\n"
+}
+
 cf_parameter_commands () {
 
   parameter_temp="${1:1}"
-  parameter_command=${parameter_temp%=*}
+  parameter_command=$(echo "${parameter_temp%=*}" | tr '[:upper:]' '[:lower:]') # This is done so all commands are lower case
   parameter_value=${parameter_temp##*=}
-
+  #echo "parameter_command [$parameter_command]"
   case $parameter_command in
     "debug")
       #debug_mode_active=1
@@ -402,6 +460,33 @@ cf_parameter_commands () {
     "#")
       cf_remark_statment
       ;;
+    "slackuri")
+      cf_slack
+      ;;
+    "email_username")
+      cf_email_username
+      ;;
+    "email_password")
+      cf_email_password
+      ;; 
+    "email_smtp")
+      cf_email_smtp
+      ;; 
+    "email_port")
+      cf_email_port
+      ;; 
+    "email_fromname")
+      cf_email_fromName
+      ;; 
+    "email_fromaddress")
+      cf_email_fromAddress
+      ;; 
+    "email_toname")
+      cf_email_toName
+      ;; 
+    "email_toaddress")
+      cf_email_toAddress
+      ;;   
     "config_file")
       :
       ;;
@@ -557,6 +642,47 @@ cf_setting_internal () {
     debug_output+="$debug_output_local undefined [config_file]\n"
   else
     cf_setting_internal_array+=("-config_file=${config_file}")
+  fi
+
+  if [[ -z $email_username ]]; then
+    debug_output+="$debug_output_local undefined [email_username]\n"
+  else
+    cf_setting_internal_array+=("-email_username=${email_username}")
+  fi
+  if [[ -z $email_password ]]; then
+    debug_output+="$debug_output_local undefined [email_password]\n"
+  else
+    cf_setting_internal_array+=("-email_password=${email_password}")
+  fi
+  if [[ -z $email_smtp ]]; then
+    debug_output+="$debug_output_local undefined [email_smtp]\n"
+  else
+    cf_setting_internal_array+=("-email_smtp=${email_smtp}")
+  fi
+  if [[ -z $email_port ]]; then
+    debug_output+="$debug_output_local undefined [email_port]\n"
+  else
+    cf_setting_internal_array+=("-email_port=${email_port}")
+  fi
+  if [[ -z $email_fromName ]]; then
+    debug_output+="$debug_output_local undefined [email_fromName]\n"
+  else
+    cf_setting_internal_array+=("-email_fromName=${email_fromName}")
+  fi
+  if [[ -z $email_fromAddress ]]; then
+    debug_output+="$debug_output_local undefined [email_fromAddress]\n"
+  else
+    cf_setting_internal_array+=("-email_fromAddress=${email_fromAddress}")
+  fi
+  if [[ -z $email_toName ]]; then
+    debug_output+="$debug_output_local undefined [email_toName]\n"
+  else
+    cf_setting_internal_array+=("-email_toName=${email_toName}")
+  fi
+  if [[ -z $email_toAddress ]]; then
+    debug_output+="$debug_output_local undefined [email_toAddress]\n"
+  else
+    cf_setting_internal_array+=("-email_toAddress=${email_toAddress}")
   fi
 
   ## This has to called last as it do process of conatcting CF and the seting have to be already set
@@ -785,26 +911,19 @@ get_date_strings () {
   # date_local=$(date +"%c %z")
 }
 
-email_setSubject () {
+set_subject_email () {
   email_subjectLine="CF-DDNS [$record_name] $date_utc_subject "
 }
 
-email_setMessage () {
-  email_messageBody=$'Account: '$auth_email$'\n'
-  email_messageBody+=$'Type A: '$record_name$'\n'
-  # email_messageBody+=$'Type AAAA: '$domain_name$'\n' # TODO
-  email_messageBody+=$'IP address: '$ip' ('$old_ip$')\n'
-  email_messageBody+=$'Time: '$date_utc$'\n'
-  email_messageBody+=$'Hostname: '$HOSTNAME$'\n'
+set_message_slack () {
+  style_slack
+  output_bodyString
+}
 
-  case "$update" in
-  *"\"success\":false"*)
-    email_messageBody+=$'Status: FAILED\n'
-    ;;
-  *)
-    email_messageBody+=$'Status: Success\n'
-    ;;
-  esac
+set_message_email () {
+  style_emailText
+  set_subject_email
+  output_bodyString
 }
 
 cf_ddns_status_email () {
@@ -819,10 +938,8 @@ cf_ddns_status_email () {
       email_toAddress=$email_fromAddress
     fi
 
-    get_date_strings
-
-    email_setSubject
-    email_setMessage
+    #get_date_strings
+    set_message_email
 
     curl -s --max-time $curl_max_time -url smtps://$email_smtp:$email_port --ssl-reqd \
       --mail-from $email_fromAddress \
@@ -832,7 +949,7 @@ cf_ddns_status_email () {
       -H "From: $email_fromName <$email_fromAddress>" \
       -H "To: $email_toName <$email_toAddress>" \
       -F '=(;type=multipart/mixed' \
-      -F "=$email_messageBody;" \
+      -F "=$output_messageBody;" \
       -F '=)'
 
     curl_errorcode=${?}
@@ -869,6 +986,51 @@ cf_ddns_status_email () {
   fi
 }
 
+style_slack () {
+  rts_header='{"text":"'
+  rte_header='"}'
+  rts_bold="*"
+  rte_bold="*"
+  rts_italicize="_"
+  rte_italicize="_"
+  rts_strickethrough="~"
+  rte_strickethrough="~"
+  rts_line=""
+  rte_line=$'\n'
+}
+
+style_emailText () {
+  rts_header=''
+  rte_header=''
+  rts_bold=""
+  rte_bold=""
+  rts_italicize=""
+  rte_italicize=""
+  rts_strickethrough=""
+  rte_strickethrough=""
+  rts_line=""
+  rte_line=$'\n'
+}
+
+output_bodyString () {
+  output_messageBody="$rts_header"
+  output_messageBody+="$rts_line""$rts_italicize""Account""$rte_italicize"": ""$auth_email""$rte_line"
+  output_messageBody+="$rts_line""$rts_italicize""Type A""$rte_italicize"": ""$record_name""$rte_line"
+  # email_messageBody+=$'Type AAAA: '$domain_name$'\n' # TODO
+  output_messageBody+="$rts_line""$rts_italicize""IP address""$rte_italicize"": ""$ip"" (""$rts_strickethrough""$old_ip""$rte_strickethrough"")""$rte_line"
+  output_messageBody+="$rts_line""$rts_italicize""Time""$rte_italicize"": ""$date_utc""$rte_line"
+  output_messageBody+="$rts_line""$rts_italicize""Hostname""$rte_italicize"": ""$HOSTNAME""$rte_line"
+  output_messageBody+="$rts_line""$rts_italicize""Status""$rte_italicize"": "
+  
+  if [ $update_status -eq 0 ]; then
+    output_messageBody+="Success"
+  else
+    output_messageBody+="$rts_bold""FAILED""$rte_bold"
+  fi 
+  output_messageBody+="$rte_line"
+
+  output_messageBody+="$rte_header"
+}
 
 cf_kickstart () {
   check_install_command curl
@@ -891,7 +1053,3 @@ cf_kickstart
 #echo "paramter :${cf_setting_parameter_array[*]}"
 #echo "file :${cf_setting_file_array[*]}"
 #exit
-
-
-  
-
