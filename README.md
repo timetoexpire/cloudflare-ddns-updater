@@ -38,6 +38,8 @@ cloudflare-ddns-updater.sh -help`
 
 [Cloudflare] auth_email, auth_method, auth_key, auth_identifier, auth_ttl, auth_proxy, purge
 
+[MessageBody] bitwise_messageBody, identifier_name
+
 [Slack] slackuri
 
 [SMTP] email_username, email_password, email_smtp, email_port, email_fromName, email_toName, email_fromAddress, email_toAddress
