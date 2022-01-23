@@ -1032,8 +1032,30 @@ output_bodyString () {
   output_messageBody+="$rte_header"
 }
 
+checkFor_WSL () {
+  # we need this because (microsoft/windows) WSL dosn't have /var/log/syslog and this will give problems with "# Logger" command
+  CheckFor_WSL="/proc/sys/fs/binfmt_misc/WSLInterop"
+  if [ -f "$CheckFor_WSL" ]; then
+    CheckFor_WSL="/proc/version"
+    case "$(cat $CheckFor_WSL)" in
+      *"-Microsoft ("*)
+        CheckFor_WSL="1" # This is value for WSL1
+        ;;
+      *"-microsoft-standard-WSL2 ("*)
+        CheckFor_WSL="2" # This is value for WSL2
+        ;;
+      *)
+        CheckFor_WSL="0" # This is value if WSL version in unknown
+        ;;
+    esac
+  else
+    CheckFor_WSL="" # This value NULL if WSLInterop dosnt exists
+  fi
+}
+
 cf_kickstart () {
   check_install_command curl
+  checkFor_WSL
   cf_setting_internal
   cf_setting_parameter
   cf_setting_file 
