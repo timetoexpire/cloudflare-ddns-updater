@@ -32,7 +32,7 @@ cf_ddns_ip () {
   if [ "${ip}" == "" ]; then 
     logger_output="DDNS Updater: No public IP found"
     debug_output+="$logger_output\n"
-    logger -s "$logger_output"
+    WSL_Logger -s "$logger_output"
     #no point going on if can not get ip
     exit_code 1
   fi
@@ -54,7 +54,7 @@ cf_ddns_seeka () {
   ## Seek for the A record
   ###########################################
 
-  logger "DDNS Updater: Check Initiated"
+  WSL_Logger "DDNS Updater: Check Initiated"
   debug_output+="$logger_output\n"
   record=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$zone_identifier/dns_records?type=A&name=$record_name" \
                         -H "X-Auth-Email: $auth_email" \
@@ -70,7 +70,7 @@ cf_ddns_checka () {
   if [[ $record == *"\"count\":0"* ]]; then
     logger_output="DDNS Updater: Record does not exist, perhaps create one first? (${ip} for ${record_name})"
       debug_output+="$logger_output\n"
-      logger -s "$logger_output"
+      WSL_Logger -s "$logger_output"
       cf_nonexistsrecord=0
       exit_code 1
   else
@@ -87,7 +87,7 @@ cf_ddns_currentip () {
   if [[ $ip == $old_ip ]]; then
       logger_output="DDNS Updater: IP ($ip) for ${record_name} has not changed."
       debug_output+="$logger_output\n"
-      logger -s "$logger_output"
+      WSL_Logger -s "$logger_output"
       exit_code 0
   fi
 }
@@ -131,7 +131,7 @@ cf_ddns_status () {
 
     logger_output="DDNS Updater: $ip $record_name DDNS failed for $record_identifier ($ip). DUMPING RESULTS:\n$update"
     debug_output+="$logger_output\n"
-    logger -s "$logger_output"
+    WSL_Logger -s "$logger_output"
     ;;
   *)
     # Success
@@ -139,7 +139,7 @@ cf_ddns_status () {
 
     logger_output="DDNS Updater: $ip $record_name DDNS updated."
     debug_output+="$logger_output\n"
-    logger "$logger_output"
+    WSL_Logger "$logger_output"
     ;;
   esac
 
@@ -195,7 +195,7 @@ exit_code () {
   # Only when tolerent mode is active, it will not stop for error
     logger_output="DDNS Updater: in tolerant mode - exit [$excode]"
     debug_output+="$logger_output\n"
-    logger "$logger_output"
+    WSL_Logger "$logger_output"
   else
   #If strict mode it will stop instantly on error
     debug_output_echo
@@ -210,7 +210,7 @@ cf_counting_sheep () {
   dateend=$(date --date="+$parameter_value seconds" +"%Y-%m-%d %H:%M:%S")
   logger_output="DDNS Updater: counting sheep ($parameter_value) $datestart : $dateend"
   debug_output+="$logger_output\n"
-  logger -s "$logger_output"
+  WSL_Logger -s "$logger_output"
   sleep "$parameter_value"
 }
 
@@ -243,7 +243,7 @@ cf_tolerant () {
   tolerant_is_set=1
   logger_output="DDNS Updater: Been set as being tolerant"
   debug_output+="$logger_output\n"
-  logger "$logger_output"
+  WSL_Logger "$logger_output"
 }
 
 cf_rsleep () {
@@ -252,42 +252,42 @@ cf_rsleep () {
   parameter_value=$(( $RANDOM % $parameter_temp ))
   logger_output+="($parameter_value)"
   debug_output+="$logger_output\n"
-  logger "$logger_output"
+  WSL_Logger "$logger_output"
   cf_counting_sheep
 }
 
 cf_auth_email () {
   logger_output="DDNS Updater: Changed [auth_email]"
   debug_output+="$logger_output ($parameter_value)\n"
-  logger "$logger_output"
+  WSL_Logger "$logger_output"
   auth_email=$parameter_value
 }
 
 cf_auth_method () {
   logger_output="DDNS Updater: Changed [auth_email]"
   debug_output+="$logger_output ($parameter_value)\n"
-  logger "$logger_output"
+  WSL_Logger "$logger_output"
   auth_method=$parameter_value
 }
 
 cf_auth_key () {
   logger_output="DDNS Updater: Change [auth_key]"
   debug_ouput+="$logger_output ($parameter_value)\n"
-  logger "$logger_output"
+  WSL_Logger "$logger_output"
   auth_key=$parameter_value
 }
 
 cf_zone_identifier () {
   logger_output="DDNS Updater: Change [zone_identifier]"
   debug_ouput+="$logger_output ($parameter_value)\n"
-  logger "$logger_output"
+  WSL_Logger "$logger_output"
   zone_identifier=$parameter_value
 }
 
 cf_ttl () {
   logger_output="DDNS Updater: Change [ttl]"
   debug_ouput+="$logger_output ($parameter_value)\n"
-  logger "$logger_output"
+  WSL_Logger "$logger_output"
   ttl=$parameter_value
 }
 
@@ -296,10 +296,10 @@ cf_proxy () {
   if [ $parameter_value = "true" ] || [ $parameter_value = "false" ]; then
     logger_output+=" ($parameter_value)"
     proxy=$parameter_value
-    logger "$logger_output"
+    WSL_Logger "$logger_output"
   else
     logger_output+=" ($parameter_value) is invalied option"
-    logger -s "$logger_output"
+    WSL_Logger -s "$logger_output"
   fi
   debug_output+="$logger_output\n"
 }
@@ -316,20 +316,20 @@ cf_record_name () {
 cf_ipset () {
   ip=$parameter_value
   logger_output="DDNS Updater: IP been set to $ip"
-  logger "$logger_output"
+  WSL_Logger "$logger_output"
   debug_ouput+="$logger_output\n"
 }
 
 cf_ipcheck () {
   ip=""
   logger_output="DDNS Updater: IP been set to do a recheck"
-  logger "$logger_output"
+  WSL_Logger "$logger_output"
   debug_ouput+="$logger_output\n"
 }
 
 cf_entry_point () {
   logger_output="DDNS Updater: [entrypoint] ($parameter_value)"
-  logger "$logger_output"
+  WSL_Logger "$logger_output"
   debug_ouput+="$logger_output\n"
 }
 
@@ -340,63 +340,63 @@ cf_remark_statment () {
 cf_slack () {
   slackuri=$parameter_value
   logger_output="DDNS Updater: [slackuri] ($parameter_value)"
-  logger "$logger_output"
+  WSL_Logger "$logger_output"
   debug_ouput+="$logger_output\n"
 }
 
 cf_email_username () {
   email_username=$parameter_value
   logger_output="DDNS Updater: [email_username] ($parameter_value)"
-  logger "$logger_output"
+  WSL_Logger "$logger_output"
   debug_ouput+="$logger_output\n"
 }
 
 cf_email_password () {
   email_password=$parameter_value
   logger_output="DDNS Updater: [email_password] ($parameter_value)"
-  logger "$logger_output"
+  WSL_Logger "$logger_output"
   debug_ouput+="$logger_output\n"
 }
 
 cf_email_smtp () {
   email_smtp=$parameter_value
   logger_output="DDNS Updater: [email_smtp] ($parameter_value)"
-  logger "$logger_output"
+  WSL_Logger "$logger_output"
   debug_ouput+="$logger_output\n"
 }
 
 cf_email_port () {
   email_port=$parameter_value
   logger_output="DDNS Updater: [email_port] ($parameter_value)"
-  logger "$logger_output"
+  WSL_Logger "$logger_output"
   debug_ouput+="$logger_output\n"
 }
 
 cf_email_fromName () {
   email_fromName=$parameter_value
   logger_output="DDNS Updater: [email_fromName] ($parameter_value)"
-  logger "$logger_output"
+  WSL_Logger "$logger_output"
   debug_ouput+="$logger_output\n"
 }
 
 cf_email_fromAddress () {
   email_fromAddress=$parameter_value
   logger_output="DDNS Updater: [email_fromAddress] ($parameter_value)"
-  logger "$logger_output"
+  WSL_Logger "$logger_output"
   debug_ouput+="$logger_output\n"
 }
 
 cf_email_toName () {
   email_toName=$parameter_value
   logger_output="DDNS Updater: [email_toName] ($parameter_value)"
-  logger "$logger_output"
+  WSL_Logger "$logger_output"
   debug_ouput+="$logger_output\n"
 }
 
 cf_email_toAddress () {
   email_toAddress=$parameter_value
   logger_output="DDNS Updater: [email_toAddress] ($parameter_value)"
-  logger "$logger_output"
+  WSL_Logger "$logger_output"
   debug_ouput+="$logger_output\n"
 }
 
@@ -493,7 +493,7 @@ cf_parameter_commands () {
     *)
       logger_output="DDNS Updater: invalid parameter option been defined [${parameter_temp}]"
       debug_output+="$logger_output\n"
-      logger -s "$logger_output"
+      WSL_Logger -s "$logger_output"
       ;;
   esac
 }
@@ -504,61 +504,61 @@ cf_err_human () {
   if [ ${#auth_email} -eq 0 ]; then
     err_is_human=1
     logger_output="DDNS Updater: ERROR [auth_email] record not been defined"
-    logger -s "$logger_output"
+    WSL_Logger -s "$logger_output"
   fi
 
   if [ ${#auth_method} -eq 0 ]; then
     err_is_human=1
     logger_output='DDNS Updater: ERROR [auth_method] setting has not been defined'
-    logger -s "$logger_output"
+    WSL_Logger -s "$logger_output"
   else
     if [ $auth_method != "token" ] && [ $auth_method != "global" ]; then
       err_is_human=1
       logger_output='DDNS Updater: ERROR [auth_method] is invaled it has to be defined "token" "global" defined'
-      logger -s "$logger_output"
+      WSL_Logger -s "$logger_output"
     fi
   fi
 
   if [ ${#auth_key} -eq 0 ]; then
     err_is_human=1
     logger_output="DDNS Updater: ERROR [auth_key] record not been defined"
-    logger -s "$logger_output"
+    WSL_Logger -s "$logger_output"
   fi
 
   if [ ${#zone_identifier} -eq 0 ]; then
     err_is_human=1
     logger_output="DDNS Updater: ERROR [zone_identifier] record has not been defined"
-    logger -s "$logger_output"
+    WSL_Logger -s "$logger_output"
   fi
 
   if [ ${#record_name} -eq 0 ]; then
     err_is_human=1
     logger_output="DDNS Updater: ERROR [record_name] record has not been defined"
-    logger -s "$logger_output"
+    WSL_Logger -s "$logger_output"
   fi
 
    if [ ${#ttl} -eq 0 ]; then
     err_is_human=1
     logger_output="DDNS Updater: ERROR [ttl] record has not been defined"
-    logger -s "$logger_output"
+    WSL_Logger -s "$logger_output"
   fi
 
   if [ ${#proxy} -eq 0 ]; then
     err_is_human=1
     logger_output='DDNS Updater: ERROR [proxy] setting has not been defined'
-    logger -s "$logger_output"
+    WSL_Logger -s "$logger_output"
   else
     if [ $proxy != "true" ] && [ $proxy != "false" ]; then
       err_is_human=1
       logger_output='DDNS Updater: ERROR [proxy] is invaled it has to be defined "true" "false" defined'
-      logger -s "$logger_output"
+      WSL_Logger -s "$logger_output"
     fi
   fi
 
   if [ ${#record_name} -eq 0 ]; then
     err_is_human=1
     logger_output="DDNS Updater: ERROR [record_name] record not has been defined"
-    logger -s "$logger_output"
+    WSL_Logger -s "$logger_output"
   fi
 
   if [ -z "$tolerant_is_set" ]; then
@@ -569,7 +569,7 @@ cf_err_human () {
   if [ $tolerant_is_set -lt 0 ] || [ $tolerant_is_set -gt 1 ]; then
     err_is_human=1
     logger_output="DDNS Updater: ERROR [tolerant_is_set] can only by 0 or 1"
-    logger -s "$logger_output"
+    WSL_Logger -s "$logger_output"
   fi
 
   if [ $err_is_human -eq 1 ]; then
@@ -769,7 +769,7 @@ cf_setting_file () {
     if [[ $config_file ]]; then
       logger_output="DDNS Updater: ${debug_output_local}file not found [${config_file}]"
       debug_output+="$logger_output\n"
-      logger -s "$logger_output"
+      WSL_Logger -s "$logger_output"
     fi
   fi
 
@@ -851,7 +851,7 @@ retain_setting () {
     if [ $config_file ]; then
       logger_output="DDNS Updater: ${debug_output_local} [-config_file] already defened as [${config_file}] not changed to [${retain_setting_to_check:13}]"
       debug_output+="$logger_output\n"
-      logger -s "$logger_output"
+      WSL_Logger -s "$logger_output"
       # This is done so file name is rem out
       retain_setting_output="-#=$retain_setting_to_check"
     else
@@ -889,7 +889,7 @@ check_install_command () {
   ## This is use to make shore for commands are install that are not part of POSIX
   check_installCommand=$1
   if [[ -z $check_installCommand ]]; then
-    logger -s "$0 [[check_install_command]]: NullReferenceException; nothing defined [$check_install_command]"
+    WSL_Logger -s "$0 [[check_install_command]]: NullReferenceException; nothing defined [$check_install_command]"
     exit 1
   fi
   if ! command -v "$check_installCommand" &> /dev/null; then
@@ -909,6 +909,7 @@ get_date_strings () {
   date_utc=$(date -u +"%Y-%m-%d %H:%M:%S %Z")
   date_utc_subject=$(date -u +%Y%m%d%-H%M)
   # date_local=$(date +"%c %z")
+  date_logger=$(date +"%b %d %H:%M:%S")
 }
 
 set_subject_email () {
@@ -931,7 +932,7 @@ cf_ddns_status_email () {
     if [[ $email_fromAddress == "" ]]; then
       logger_output="DDNS Updater : There is no from e-mail address been defiened [email_fromAddress]"
       debug_output+="$logger_output\n"
-      logger -s "$logger_output"
+      WSL_Logger -s "$logger_output"
     fi
 
     if [[ $email_toAddress == "" ]]; then
@@ -980,7 +981,7 @@ cf_ddns_status_email () {
       #curl_errorhuman+=$'\nAccess: ['$sesAccess']'
       logger_output="DDNS Updater: e-mail $curl_errorcode :- $curl_errorhuman"
       debug_output+="$logger_output\n"
-      logger -s "$logger_output"
+      WSL_Logger -s "$logger_output"
       exit_code 1
     fi
   fi
@@ -1050,6 +1051,48 @@ checkFor_WSL () {
     esac
   else
     CheckFor_WSL="" # This value NULL if WSLInterop dosnt exists
+  fi
+}
+
+WSL_Logger () {
+  # we need this because (microsoft/windows) WSL dosn't have /var/log/syslog and this will give problems with "# Logger" command
+
+  #Resting the values
+  WSL_Output="" 
+  WSL_Output_boolean=0
+
+  for WSL_loop in "$@"
+  do
+    if [ "$WSL_loop" = "-s" ]; then
+        #"-s" Log the message to standard error 
+      get_date_strings
+      WSL_Output_boolean=1
+    else
+      if [ ! -z "$WSL_Output" ]; then
+      WSL_Output+=" "
+    fi
+      WSL_Output+="$WSL_loop"
+    fi
+  done
+
+  if [ -z "$CheckFor_WSL" ]; then
+    if [ $WSL_Output_boolean = 1 ]; then
+      WSL_Eval="WSL_Logger -s \"$WSL_Output\""
+    else
+      WSL_Eval="WSL_Logger \"$WSL_Output\"" 
+    fi
+  else
+    if [ $WSL_Output_boolean = 1 ]; then
+      WSL_Eval="echo \"<WSL-logger> $date_WSL_Logger $USER: $WSL_Output\""
+    else
+      :
+      #Not being use a moment NEEDS TO REVIEWED
+    fi
+  fi
+
+  if [ ! -z "$WSL_Eval" ]; then
+    # Not done if WSL and -s isn't required
+    eval "$WSL_Eval"
   fi
 }
 
