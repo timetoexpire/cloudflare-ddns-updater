@@ -4,6 +4,8 @@
 This script is used to update dynamic DNS entries for accounts on Cloudflare.
 You are able to get status reports via Slack/eMail
 
+Finally with early support for Windows Subsystem for Linux (WSL)
+
 ## Installation
 
 ```bash
@@ -38,7 +40,9 @@ cloudflare-template.sh -help`
 
 [Cloudflare] auth_email, auth_method, auth_key, auth_identifier, auth_ttl, auth_proxy, purge
 
-[MessageBody] bitwise_messageBody, identifier_name
+[DNS] record_name, ip_recheck, ip_set
+
+[MessageBody] *COMMING SOON*
 
 [Slack] slackuri
 

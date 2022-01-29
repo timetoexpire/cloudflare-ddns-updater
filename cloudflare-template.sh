@@ -9,7 +9,7 @@ record_name=""                                     # Which record you want to be
 ttl="3600"                                         # Set the DNS TTL (seconds)
 proxy=false                                        # Set the proxy to true or false
 slackuri=""                                        # URI for Slack WebHook "https://hooks.slack.com/services/xxxxx"
-config_file=""
+config_file=""                                     # file location of config file
 
 email_username=""                                  # email account username
 email_password=""                                  # email account password
@@ -78,17 +78,39 @@ cf_ddns_checka () {
   fi
 }
 
-cf_ddns_currentip () {
+cf_ddns_recordchanged () {
   ###########################################
-  ## Get existing IP
+  ## The record has had an change
   ###########################################
   old_ip=$(echo "$record" | sed -E 's/.*"content":"(([0-9]{1,3}\.){3}[0-9]{1,3})".*/\1/')
+  old_proxy=$(echo "$record" | sed 's/.*"proxied":"\{0,1\}\([^,"]*\)"\{0,1\}.*/\1/')
+  old_ttl=$(echo "$record" | sed 's/.*"ttl":"\{0,1\}\([^,"]*\)"\{0,1\}.*/\1/')
+  debug_output+="cf_ddns_recordchanged: record_name [$record_name] ip [$ip] old_ip [$old_ip] proxy [$proxy] old_proxy [$old_proxy] ttl [$ttl] old_ttl [$old_ttl]"
+
   # Compare if they're the same
-  if [[ $ip == $old_ip ]]; then
-      logger_output="DDNS Updater: IP ($ip) for ${record_name} has not changed."
-      debug_output+="$logger_output\n"
-      WSL_Logger -s "$logger_output"
-      exit_code 0
+  record_changed=0
+
+  if [[ $ip != $old_ip ]]; then
+    (( record_changed++ ))
+  fi
+  if [[ $proxy != $old_proxy ]]; then 
+    (( record_changed++ ))
+  fi
+  if [[ $proxy == false ]] && [[ $ttl != $old_ttl ]]; then
+    (( record_changed++ ))
+  fi
+ 
+  if [[ record_changed -eq 0 ]]; then
+    logger_output="DDNS Updater: IP ($ip) also "
+    if [[ $proxy == true ]]; then
+      logger_output+="proxy ($proxy)"
+    else
+      logger_output+="ttl ($ttl)"
+    fi
+    logger_output+=" have not changed."
+    debug_output+="$logger_output\n"
+    WSL_Logger -s "$logger_output"
+    exit_code 0
   fi
 }
 
@@ -165,8 +187,8 @@ cf_ddns_main () {
   cf_ddns_seeka
   cf_ddns_checka
   if [ $cf_nonexistsrecord -eq 1 ]; then
-    cf_ddns_currentip
-    if [[ $ip != $old_ip ]]; then
+    cf_ddns_recordchanged
+    if [ $record_changed -gt 0 ]; then
       cf_ddns_set_identifier
       cf_ddns_update
       cf_ddns_status
@@ -203,11 +225,9 @@ exit_code () {
   fi
 }
 
-
-
 cf_counting_sheep () {
   datestart=$(date +%Y/%m/%d\ %H:%M:%S)
-  dateend=$(date --date="+$parameter_value seconds" +"%Y-%m-%d %H:%M:%S")
+  dateend=$(date --date="+$parameter_value seconds" +"%Y/%m/%d %H:%M:%S")
   logger_output="DDNS Updater: counting sheep ($parameter_value) $datestart : $dateend"
   debug_output+="$logger_output\n"
   WSL_Logger -s "$logger_output"
@@ -264,7 +284,7 @@ cf_auth_email () {
 }
 
 cf_auth_method () {
-  logger_output="DDNS Updater: Changed [auth_email]"
+  logger_output="DDNS Updater: Changed [auth_method]"
   debug_output+="$logger_output ($parameter_value)\n"
   WSL_Logger "$logger_output"
   auth_method=$parameter_value
@@ -313,14 +333,14 @@ cf_record_name () {
   #TODO **************************************************************************************************************************
 }
 
-cf_ipset () {
+cf_ip_set () {
   ip=$parameter_value
   logger_output="DDNS Updater: IP been set to $ip"
   WSL_Logger "$logger_output"
   debug_ouput+="$logger_output\n"
 }
 
-cf_ipcheck () {
+cf_ip_recheck () {
   ip=""
   logger_output="DDNS Updater: IP been set to do a recheck"
   WSL_Logger "$logger_output"
@@ -401,11 +421,11 @@ cf_email_toAddress () {
 }
 
 cf_parameter_commands () {
-
   parameter_temp="${1:1}"
+  string_character=${parameter_temp:${#parameter_temp}-1:1}
   parameter_command=$(echo "${parameter_temp%=*}" | tr '[:upper:]' '[:lower:]') # This is done so all commands are lower case
   parameter_value=${parameter_temp##*=}
-  #echo "parameter_command [$parameter_command]"
+
   case $parameter_command in
     "debug")
       #debug_mode_active=1
@@ -445,11 +465,11 @@ cf_parameter_commands () {
     "record_name")
       cf_record_name
       ;;
-    "ipset")
-      cf_ipset
+    "ip_set")
+      cf_ip_set
       ;;
-    "ipcheck")
-      cf_ipcheck
+    "ip_recheck")
+      cf_ip_recheck
       ;;
     "entrypoint")
       cf_entry_point
@@ -734,6 +754,7 @@ cf_setting_file () {
 #io: string_x_pos
 #o: string_character
 
+  setting_file_gt_len=2
   string_y_pos=0
   debug_output_local="cf_setting_file:"
   if [ -f $config_file ] && [ $config_file ]; then
@@ -759,9 +780,14 @@ cf_setting_file () {
             retain_setting
             activate_instantly_settings
           else
-            retain_setting_output=("-record_name=${string_removed_whitespace}")
+            if [[ ${#string_removed_whitespace} -gt $setting_file_gt_len ]]; then
+              retain_setting_output=("-record_name=${string_removed_whitespace}")
+            fi
+
           fi
-          cf_setting_file_array+=("${retain_setting_output}")
+          if [[ ${#string_removed_whitespace} -gt $setting_file_gt_len ]]; then
+            cf_setting_file_array+=("${retain_setting_output}")
+          fi
         fi
      fi
     done < "$config_file"
@@ -801,14 +827,18 @@ string_check_whitspace () {
 #io: string_removed_whitespace
 #io: within_quatation_mark
 #io: string_where_equal_sign
-
+ #######if [[ $string_character == $'\015' ]]; then # WINDOWS CR
   # \011 = Tab (Tab vertical) || \040 = Space
   if [[ $string_character == $'\011' ]] || [[ $string_character == $'\040' ]]; then
     if (( $within_quatation_mark )); then
       string_removed_whitespace+=$string_character
     fi
   else
-    string_non_whitespace
+    if [[ $string_character != $'\015' ]]; then
+      # If not (\015 0x0D \r) CR Carriage Return - Microsoft Windows
+      # $'\055') # https://en.wikipedia.org/wiki/Carriage_return
+      string_non_whitespace
+    fi
   fi
 }
 
@@ -843,7 +873,6 @@ string_non_whitespace (){
   fi
 }
 
-
 retain_setting () {
   # The first time it declared it vaild, anthing else is not vaild.
   retain_setting_output=$retain_setting_to_check
@@ -856,7 +885,7 @@ retain_setting () {
       retain_setting_output="-#=$retain_setting_to_check"
     else
       config_file=${retain_setting_to_check:13}
-      retain_setting_output=$config_file
+      retain_setting_output="-#=config_file [$config_file]"
     fi
   fi
 }
@@ -1019,6 +1048,22 @@ output_bodyString () {
   output_messageBody+="$rts_line""$rts_italicize""Type A""$rte_italicize"": ""$record_name""$rte_line"
   # email_messageBody+=$'Type AAAA: '$domain_name$'\n' # TODO
   output_messageBody+="$rts_line""$rts_italicize""IP address""$rte_italicize"": ""$ip"" (""$rts_strickethrough""$old_ip""$rte_strickethrough"")""$rte_line"
+  output_messageBody+="$rts_line""$rts_italicize""Proxied""$rte_italicize"": ""$proxy"" (""$rts_strickethrough""$old_proxy""$rte_strickethrough"")""$rte_line"
+
+  output_messageBody+="$rts_line""$rts_italicize""TTL""$rte_italicize"": "
+  if [[ $proxy == true ]]; then
+    output_messageBody+="PROXIED"
+  else
+    output_messageBody+="$ttl"
+  fi
+  output_messageBody+=" (""$rts_strickethrough"
+  if [[ $old_proxy == true ]]; then
+    output_messageBody+="PROXIED"
+  else
+    output_messageBody+="$ttl"
+  fi
+  output_messageBody+="$rte_strickethrough"")""$rte_line"
+
   output_messageBody+="$rts_line""$rts_italicize""Time""$rte_italicize"": ""$date_utc""$rte_line"
   output_messageBody+="$rts_line""$rts_italicize""Hostname""$rte_italicize"": ""$HOSTNAME""$rte_line"
   output_messageBody+="$rts_line""$rts_italicize""Status""$rte_italicize"": "
@@ -1060,6 +1105,7 @@ WSL_Logger () {
   #Resting the values
   WSL_Output="" 
   WSL_Output_boolean=0
+  WSL_Eval=""
 
   for WSL_loop in "$@"
   do
@@ -1077,13 +1123,13 @@ WSL_Logger () {
 
   if [ -z "$CheckFor_WSL" ]; then
     if [ $WSL_Output_boolean = 1 ]; then
-      WSL_Eval="WSL_Logger -s \"$WSL_Output\""
+      WSL_Eval="logger -s \"$WSL_Output\""
     else
-      WSL_Eval="WSL_Logger \"$WSL_Output\"" 
+      WSL_Eval="logger \"$WSL_Output\"" 
     fi
   else
     if [ $WSL_Output_boolean = 1 ]; then
-      WSL_Eval="echo \"<WSL-logger> $date_WSL_Logger $USER: $WSL_Output\""
+      WSL_Eval="echo \"<WSL-logger> $date_logger $USER: $WSL_Output\""
     else
       :
       #Not being use a moment NEEDS TO REVIEWED
