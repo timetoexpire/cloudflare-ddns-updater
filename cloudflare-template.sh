@@ -11,6 +11,9 @@ proxy=false                                        # Set the proxy to true or fa
 slackuri=""                                        # URI for Slack WebHook "https://hooks.slack.com/services/xxxxx"
 config_file=""                                     # file location of config file
 
+message_output=255                                 # (bitwise) (1)=Account (2)=Type (4)=IP Address (8)=Proxy (16)=TTL (32)=Time (64)=Identifier (128)=Status   'https://en.wikipedia.org/wiki/Bitwise_operation'
+message_name=""                                    # set an identifier name, if none is set (NULL) it will use $HOSTNAME
+
 email_username=""                                  # email account username
 email_password=""                                  # email account password
 email_smtp=""                                      # email SMTP server
@@ -250,6 +253,8 @@ cf_help () {
   echo "-auth_proxy=X it for this will change it for proceeding domains"
   echo "-purge will purge current setting for cloudflare"
   echo "Messaging services (Slack/email)"
+  echo "-message_output=X (bitwise value) (1)=Account (2)=Type (4)=IP Address (8)=Proxy (16)=TTL (32)=Time (64)=Identifier (128)=Status"
+  echo "-message_name=X set the reported Identifier name, if none is set (null) it will use \$HOSTNAME"
   echo "-slackuri=X Slack webhooks URI"
   echo "-email_username=X SMTP username"
   echo "-email_password=X SMTP password"
@@ -420,6 +425,20 @@ cf_email_toAddress () {
   debug_ouput+="$logger_output\n"
 }
 
+cf_message_output () {
+  message_output=$parameter_value
+  logger_output="DDNS Updater: [message_output] ($parameter_value)"
+  logger "$logger_output"
+  debug_ouput+="$logger_output\n"
+}
+
+cf_message_name() { 
+  message_name=$parameter_value
+  logger_output="DDNS Updater: [message_name] ($parameter_value)"
+  logger "$logger_output"
+  debug_ouput+="$logger_output\n"
+} 
+
 cf_parameter_commands () {
   parameter_temp="${1:1}"
   string_character=${parameter_temp:${#parameter_temp}-1:1}
@@ -507,6 +526,12 @@ cf_parameter_commands () {
     "email_toaddress")
       cf_email_toAddress
       ;;   
+    "message_output")
+      cf_message_output
+      ;;
+    "message_name")
+      cf_message_name
+      ;;
     "config_file")
       :
       ;;
@@ -704,6 +729,17 @@ cf_setting_internal () {
   else
     cf_setting_internal_array+=("-email_toAddress=${email_toAddress}")
   fi
+
+  if [[ -z $message_output ]]; then
+    debug_output+="$debug_output_local undefined [message_output]\n"
+  else
+    cf_setting_internal_array+=("-message_output=${message_output}")
+  fi  
+  if [[ -z $message_name ]]; then
+    debug_output+="$debug_output_local undefined [message_name]\n"
+  else
+    cf_setting_internal_array+=("-message_name=${message_name}")
+  fi 
 
   ## This has to called last as it do process of conatcting CF and the seting have to be already set
   if [[ -z $record_name ]]; then
@@ -1044,36 +1080,65 @@ style_emailText () {
 
 output_bodyString () {
   output_messageBody="$rts_header"
-  output_messageBody+="$rts_line""$rts_italicize""Account""$rte_italicize"": ""$auth_email""$rte_line"
-  output_messageBody+="$rts_line""$rts_italicize""Type A""$rte_italicize"": ""$record_name""$rte_line"
-  # email_messageBody+=$'Type AAAA: '$domain_name$'\n' # TODO
-  output_messageBody+="$rts_line""$rts_italicize""IP address""$rte_italicize"": ""$ip"" (""$rts_strickethrough""$old_ip""$rte_strickethrough"")""$rte_line"
-  output_messageBody+="$rts_line""$rts_italicize""Proxied""$rte_italicize"": ""$proxy"" (""$rts_strickethrough""$old_proxy""$rte_strickethrough"")""$rte_line"
+  for ((output_bodyString_bitwise_lc=1, output_bodyString_bitwise_loop=1; output_bodyString_bitwise_loop <= $message_output; output_bodyString_bitwise_loop=((output_bodyString_bitwise_loop << 1)), output_bodyString_bitwise_lc++)); do
 
-  output_messageBody+="$rts_line""$rts_italicize""TTL""$rte_italicize"": "
-  if [[ $proxy == true ]]; then
-    output_messageBody+="PROXIED"
-  else
-    output_messageBody+="$ttl"
-  fi
-  output_messageBody+=" (""$rts_strickethrough"
-  if [[ $old_proxy == true ]]; then
-    output_messageBody+="PROXIED"
-  else
-    output_messageBody+="$ttl"
-  fi
-  output_messageBody+="$rte_strickethrough"")""$rte_line"
+    case $(($output_bodyString_bitwise_loop & $message_output)) in
+      1)
+        output_messageBody+="$rts_line""$rts_italicize""Account""$rte_italicize"": ""$auth_email""$rte_line"
+        ;;
+      2)
+        output_messageBody+="$rts_line""$rts_italicize""Type A""$rte_italicize"": ""$record_name""$rte_line"
+        # email_messageBody+=$'Type AAAA: '$domain_name$'\n' # TODO
+        ;;
+      4)
+        output_messageBody+="$rts_line""$rts_italicize""IP address""$rte_italicize"": ""$ip"" (""$rts_strickethrough""$old_ip""$rte_strickethrough"")""$rte_line"
+        ;;
+      8)
+        output_messageBody+="$rts_line""$rts_italicize""Proxy""$rte_italicize"": ""$proxy"" (""$rts_strickethrough""$old_proxy""$rte_strickethrough"")""$rte_line"
+        ;;
+      16)
+        output_messageBody+="$rts_line""$rts_italicize""TTL""$rte_italicize"": "
+        if [[ $proxy == true ]]; then
+          output_messageBody+="PROXIED"
+        else
+          output_messageBody+="$ttl"
+        fi
+        output_messageBody+=" (""$rts_strickethrough"
+        if [[ $old_proxy == true ]]; then
+          output_messageBody+="PROXIED"
+        else
+          output_messageBody+="$ttl"
+        fi
+        output_messageBody+="$rte_strickethrough"")""$rte_line"
+        ;;
+      32)
+        output_messageBody+="$rts_line""$rts_italicize""Time""$rte_italicize"": ""$date_utc""$rte_line"
+        ;;
+      64)
+        ####output_messageBody+="$rts_line""$rts_italicize""Hostname""$rte_italicize"": ""$HOSTNAME""$rte_line"
+        output_messageBody+="$rts_line""$rts_italicize""Identifier""$rte_italicize"": "
+        if [ -z $message_name ]; then
+          output_messageBody+="$HOSTNAME"
+        else
+          output_messageBody+="$message_name"
+        fi
+        output_messageBody+="$rte_line"
+        ;;
+      128)
+        output_messageBody+="$rts_line""$rts_italicize""Status""$rte_italicize"": "
+        if [ $update_status -eq 0 ]; then
+          output_messageBody+="Success"
+        else
+          output_messageBody+="$rts_bold""FAILED""$rte_bold"
+        fi 
+        output_messageBody+="$rte_line"
+        ;;
+      *)
+        :
+        ;;
+    esac
+  done
 
-  output_messageBody+="$rts_line""$rts_italicize""Time""$rte_italicize"": ""$date_utc""$rte_line"
-  output_messageBody+="$rts_line""$rts_italicize""Hostname""$rte_italicize"": ""$HOSTNAME""$rte_line"
-  output_messageBody+="$rts_line""$rts_italicize""Status""$rte_italicize"": "
-  
-  if [ $update_status -eq 0 ]; then
-    output_messageBody+="Success"
-  else
-    output_messageBody+="$rts_bold""FAILED""$rte_bold"
-  fi 
-  output_messageBody+="$rte_line"
 
   output_messageBody+="$rte_header"
 }
