@@ -8,11 +8,14 @@ zone_identifier=""                                 # Can be found in the "Overvi
 record_name=""                                     # Which record you want to be synced
 ttl="3600"                                         # Set the DNS TTL (seconds)
 proxy=false                                        # Set the proxy to true or false
-slackuri=""                                        # URI for Slack WebHook "https://hooks.slack.com/services/xxxxx"
+
 config_file=""                                     # file location of config file
 
 message_output=255                                 # (bitwise) (1)=Account (2)=Type (4)=IP Address (8)=Proxy (16)=TTL (32)=Time (64)=Identifier (128)=Status   'https://en.wikipedia.org/wiki/Bitwise_operation'
 message_name=""                                    # set an identifier name, if none is set (NULL) it will use $HOSTNAME
+message_type=0                                     # (bitwise) (1)=Slack (2)=email (4)=console (8)=file   'https://youtu.be/LpuPe81bc2w'
+
+slackuri=""                                        # URI for Slack WebHook "https://hooks.slack.com/services/xxxxx"
 
 email_username=""                                  # email account username
 email_password=""                                  # email account password
@@ -23,6 +26,12 @@ email_fromAddress=""                               # email poster (email) addres
 email_toName=""                                    # email recive name
 email_toAddress=""                                 # email recive (email) address, if empty will use one defined in $email_fromAddress
 
+file_logPath=""                                    # File location of where it output the log, the file is appended
+
+
+####################################################
+# Only edit bellow if understand what you are doing 
+####################################################
 parameter_input=("$@")
 curl_max_time=30.5
 
@@ -168,15 +177,27 @@ cf_ddns_status () {
     ;;
   esac
 
-  #send message via slack
-  if [[ $slackuri != "" ]]; then
-    cf_ddns_status_slack
-  fi
-  #send messgae via email
-  if [[ $email_username != "" ]]; then
-    cf_ddns_status_email
-  fi
-
+  for ((cf_ddns_status_bitwise_lc=1, cf_ddns_status_bitwise_loop=1; cf_ddns_status_bitwise_loop <= $message_type; cf_ddns_status_bitwise_loop=((cf_ddns_status_bitwise_loop << 1)), cf_ddns_status_bitwise_lc++)); do
+    case $(($cf_ddns_status_bitwise_loop & $message_type)) in
+      1)
+        #send message via slack
+        cf_ddns_status_slack
+        ;;
+      2)
+        #send message via email
+        cf_ddns_status_email
+        ;;
+      4)
+        cf_ddns_status_console
+        ;;
+      8)
+        cf_ddns_status_planetext
+        ;;
+      *)
+        :
+        ;;
+    esac
+  done
   exit_code $update_status
 }
 
@@ -252,9 +273,10 @@ cf_help () {
   echo "-auth_ttl=X it for this will change it for proceeding domains"
   echo "-auth_proxy=X it for this will change it for proceeding domains"
   echo "-purge will purge current setting for cloudflare"
-  echo "Messaging services (Slack/email)"
+  echo "Messaging services (Slack/email/console/file)"
   echo "-message_output=X (bitwise value) (1)=Account (2)=Type (4)=IP Address (8)=Proxy (16)=TTL (32)=Time (64)=Identifier (128)=Status"
   echo "-message_name=X set the reported Identifier name, if none is set (null) it will use \$HOSTNAME"
+  echo "-message_type=X (bitwise value) (1)=Slack (2)=e-mail (4)=console (8)=file"
   echo "-slackuri=X Slack webhooks URI"
   echo "-email_username=X SMTP username"
   echo "-email_password=X SMTP password"
@@ -262,6 +284,7 @@ cf_help () {
   echo "-email_port=X SMTP port number"
   echo "-email_fromName / -email_toName=X name of user of that email address (Joe Bloggs / Jane Doe)"
   echo "-email_fromAddress / -email_toAddress=X email address of that user (joe@example.com / jane@example.org)"
+  echo "-file_logPath ################################################"
 }
 
 cf_tolerant () {
@@ -439,6 +462,21 @@ cf_message_name() {
   debug_ouput+="$logger_output\n"
 } 
 
+cf_message_type() { 
+  message_type=$parameter_value
+  logger_output="DDNS Updater: [message_type] ($parameter_value)"
+  logger "$logger_output"
+  debug_ouput+="$logger_output\n"
+} 
+
+cf_file_logPath() { 
+  file_logPath=$parameter_value
+  logger_output="DDNS Updater: [file_logPath] ($parameter_value)"
+  logger "$logger_output"
+  debug_ouput+="$logger_output\n"
+} 
+
+
 cf_parameter_commands () {
   parameter_temp="${1:1}"
   string_character=${parameter_temp:${#parameter_temp}-1:1}
@@ -531,6 +569,12 @@ cf_parameter_commands () {
       ;;
     "message_name")
       cf_message_name
+      ;;
+    "message_type")
+      cf_message_type
+      ;;
+    "file_logpath")
+      cf_file_logPath
       ;;
     "config_file")
       :
@@ -739,6 +783,16 @@ cf_setting_internal () {
     debug_output+="$debug_output_local undefined [message_name]\n"
   else
     cf_setting_internal_array+=("-message_name=${message_name}")
+  fi 
+  if [[ -z $message_type ]]; then
+    debug_output+="$debug_output_local undefined [message_type]\n"
+  else
+    cf_setting_internal_array+=("-message_type=${message_type}")
+  fi 
+  if [[ -z $file_logPath ]]; then
+    debug_output+="$debug_output_local undefined [file_logPath]\n"
+  else
+    cf_setting_internal_array+=("-file_logPath=${file_logPath}")
   fi 
 
   ## This has to called last as it do process of conatcting CF and the seting have to be already set
@@ -992,6 +1046,16 @@ set_message_email () {
   output_bodyString
 }
 
+set_message_console () {
+  style_console
+  output_bodyString
+}
+
+set_message_planetext () {
+  style_planetext
+  output_bodyString
+}
+
 cf_ddns_status_email () {
   if [[ $email_username != "" ]]; then
     if [[ $email_fromAddress == "" ]]; then
@@ -1052,6 +1116,26 @@ cf_ddns_status_email () {
   fi
 }
 
+cf_ddns_status_console () {
+  ###########################################
+  ## Report to the console
+  ###########################################
+  set_message_console
+  echo -e "$output_messageBody"
+}
+
+cf_ddns_status_planetext () {
+  if [ -z $file_logPath ]; then
+    logger_output="DDNS Updater: file_logPath [$file_logPath] undefined value"
+    debug_output+="$logger_output\n"
+    WSL_Logger -s "$logger_output"
+    exit_code 1
+  else
+    set_message_planetext
+    echo -e "$output_messageBody" >>"$file_logPath"
+  fi
+}
+
 style_slack () {
   rts_header='{"text":"'
   rte_header='"}'
@@ -1067,6 +1151,32 @@ style_slack () {
 
 style_emailText () {
   rts_header=''
+  rte_header=''
+  rts_bold=""
+  rte_bold=""
+  rts_italicize=""
+  rte_italicize=""
+  rts_strickethrough=""
+  rte_strickethrough=""
+  rts_line=""
+  rte_line=$'\n'
+}
+
+style_console () {
+  rts_header=$'---\n'
+  rte_header=''
+  rts_bold=""
+  rte_bold=""
+  rts_italicize=""
+  rte_italicize=""
+  rts_strickethrough=""
+  rte_strickethrough=""
+  rts_line=""
+  rte_line=$'\n'
+}
+
+style_planetext () {
+  rts_header=$'---\n'
   rte_header=''
   rts_bold=""
   rte_bold=""
@@ -1217,7 +1327,6 @@ cf_kickstart () {
   cf_exec
   debug_output_echo
 }
-
 
 
 cf_kickstart
