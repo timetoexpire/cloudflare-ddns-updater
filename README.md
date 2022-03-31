@@ -316,5 +316,9 @@ This script was made with reference from [Keld Norman](https://www.youtube.com/w
 
 This was forked from [Jason K](https://github.com/K0p1-Git/cloudflare-ddns-updater) script.
 
+## Erratum
+
+[Google is changing it requirements for SMTP authentication](https://github.com/timetoexpire/cloudflare-ddns-updater/discussions/3)
+
 ## License
 [MIT](https://github.com/timetoexpire/cloudflare-ddns-updater/blob/main/LICENSE)
