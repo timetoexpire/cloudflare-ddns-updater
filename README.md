@@ -309,16 +309,15 @@ Some messages will be output to the applicable console. But this is not being do
 It unnecessary execute this script as a Superuser ("_root_"). You are able to execute it as a _root_ user but it discouraged. It was designed to execute the Bash script as _non-root_ user. 
 
 ## Contributing
+
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
 
 ## Reference
+
 This script was made with reference from [Keld Norman](https://www.youtube.com/watch?v=vSIBkH7sxos) video.
 
 This was forked from [Jason K](https://github.com/K0p1-Git/cloudflare-ddns-updater) script.
 
-## Erratum
-
-[Google is changing it requirements for SMTP authentication](https://github.com/timetoexpire/cloudflare-ddns-updater/discussions/3)
-
 ## License
+
 [MIT](https://github.com/timetoexpire/cloudflare-ddns-updater/blob/main/LICENSE)
