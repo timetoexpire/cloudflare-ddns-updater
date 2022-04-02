@@ -13,9 +13,11 @@ config_file=""                                     # file location of config fil
 
 report_attribute="0"                               # (bitwise) (1)=Account (2)=Type (4)=IP Address (8)=Proxy (16)=TTL (32)=Time (64)=Identifier (128)=BootID (256)=Status   'https://en.wikipedia.org/wiki/Bitwise_operation'
 report_name=""                                     # set an identifier name, if none is set (NULL) it will use $HOSTNAME
-report_distribution="0"                            # (bitwise) (1)=Slack (2)=email (4)=console (8)=file (16)=telegram (32)=nextcloud 'https://youtu.be/LpuPe81bc2w'
+report_distribution="0"                            # (bitwise) (1)=Slack (2)=email (4)=console (8)=file (16)=telegram (32)=nextcloud (64)=discord 'https://youtu.be/LpuPe81bc2w'
 
 slackuri=""                                        # URI for Slack WebHook "https://hooks.slack.com/services/xxxxx"
+
+discorduri=""                                      # URI for Discord WebHook "https://discord.com/api/webhooks/xxxxx/xxxxx"
 
 email_username=""                                  # email account username
 email_password=""                                  # email account password
@@ -178,8 +180,32 @@ cf_ddns_status_slack () {
   fi
 }
 
+cf_ddns_status_discord () {
+  if [ -z $discorduri ]; then
+    logger_output="$log_name -discordurl is undefined value"
+    debug_output+="$logger_output\n"
+    WSL_Logger -s "$logger_output"
+    exit_code 1
+  else
+    set_message_discord
+    update_discord=$(curl -s --user-agent "$agent_name" --max-time $curl_max_time -X POST $discorduri -H 'Content-type: application/json' --data "$output_messageBody")
+    curl_errorcode=${?}
+    if [ ${#update_discord} -ne 0 ] || [ $curl_errorcode -ne 0 ]; then
+      # FAILED
+      logger_output="$log_name discord unable to send message"  
+      debug_output+="$logger_output\n"
+      WSL_Logger -s "$logger_output"
+    fi
+  fi
+}
+
+
+
+
+
 cf_ddns_status () {
   get_date_strings
+  cf_ddns_status_date_utc="$date_utc"
   get_bootid
   # If it reports "false" or it NULL string from [cf_ddns_update] $update=$(curl) then it FAILED
 
@@ -221,6 +247,10 @@ cf_ddns_status () {
       32)
         #send message via nextcloud
         cf_ddns_status_nextcloud
+        ;;
+      64)
+        #send message via discord
+        cf_ddns_status_discord
         ;;
       *)
         :
@@ -308,8 +338,8 @@ cf_help () {
   echo "-config_file=X , this is config that to used"
   echo "-sleep=X , this is sleep timer for that script"
   echo "-rsleep=X , this will set a random legth time sleep timer for the script"
-  echo "-purge=X , To purge settings (operates using bitwise values)"
-  echo "; 1 Cloudflare, 2 DNS, 4 Report, 8 Slack, 16 eMail, 32 File, 64 Telegram, 128 Nextcloud"
+  echo "-purge=X , To purge settings (operates using bitwise values)"#########################################################################
+  echo "; 1 Cloudflare, 2 DNS, 4 Report, 8 Slack, 16 eMail, 32 File, 64 Telegram, 128 Nextcloud, 256 Discord" #############################################
 
   echo "-auth_email=X , The e-mail that used to login to cloudflare \"https://dash.cloudflare.com\""
   echo "-auth_method=X , Set to \"global\" for Global API Key or \"token\" for Scoped API Token"
@@ -325,7 +355,7 @@ cf_help () {
   echo "-ip_maxage=X , the duration then needs to pass until IP is rechecked"
 
   echo "-report_distribution=X , services that being used sending messaging reports (operates using bitwise values)"
-  echo "; 1 Slack, 2 eMail, 4 Console, 8 File, 16 Telegram, 32 Nextcloud"
+  echo "; 1 Slack, 2 eMail, 4 Console, 8 File, 16 Telegram, 32 Nextcloud, 64 Discord"
   echo "-report_attribute=X , control what is contained in messaging reports (operates using bitwise values)"
   echo "; 1 Account, 2 Type, 4 IP Address, 8 Proxy, 16 TTL, 32 Time, 64 Identifier, 128 BootID, 256 Status"
   echo "-report_name=X , this is system identifier name being used, if it not be set it will hostname instead"
@@ -477,6 +507,13 @@ cf_slack () {
   debug_ouput+="$logger_output\n"
 }
 
+cf_discord () {
+  discorduri=$parameter_value
+  logger_output="$log_name [discorduri] ($parameter_value)"
+  WSL_Logger "$logger_output"
+  debug_ouput+="$logger_output\n"
+}
+
 cf_email_username () {
   email_username=$parameter_value
   logger_output="$log_name [email_username] ($parameter_value)"
@@ -620,7 +657,7 @@ cf_purge() {
 }
 
 cf_purge_all() {
-  parameter_value=255
+  parameter_value=511
   logger_output="$log_name [purge_all] ($parameter_value)"
   logger "$logger_output"
   debug_ouput+="$logger_output\n"
@@ -695,6 +732,9 @@ cf_parameter_commands () {
       ;;
     "slackuri")
       cf_slack
+      ;;
+    "discorduri")
+      cf_discord
       ;;
     "email_username")
       cf_email_username
@@ -886,20 +926,15 @@ cf_setting_internal () {
   else
     cf_setting_internal_array+=("-proxy=${proxy}")
   fi
-  if [[ -z $slacksitename ]]; then
-    debug_output+="$debug_output_local undefined [slacksitename]\n"
-  else
-    cf_setting_internal_array+=("-slacksitename=${slacksitename}")
-  fi
-  if [[ -z $slackchannel ]]; then
-    debug_output+="$debug_output_local undefined [slackchannel]\n"
-  else
-    cf_setting_internal_array+=("-slackchannel=${slackchannel}")
-  fi
   if [[ -z $slackuri ]]; then
     debug_output+="$debug_output_local undefined [slackuri]\n"
   else
     cf_setting_internal_array+=("-slackuri=${slackuri}")
+  fi
+  if [[ -z $discorduri ]]; then
+    debug_output+="$debug_output_local undefined [discorduri]\n"
+  else
+    cf_setting_internal_array+=("-discorduri=${discorduri}")
   fi
   if [[ -z $config_file ]]; then
     debug_output+="$debug_output_local undefined [config_file]\n"
@@ -1254,6 +1289,11 @@ set_message_slack () {
   output_bodyString
 }
 
+set_message_discord () {
+  style_discord
+  output_bodyString
+}
+
 set_message_email () {
   style_emailText
   set_subject_email
@@ -1423,6 +1463,21 @@ style_slack () {
   # NEED TO REVIEW :- characters_prepend not need for Slack
 }
 
+style_discord () {
+  rts_header='{"content": "'
+  rte_header='", "embeds": null}'
+  rts_bold="**"
+  rte_bold="**"
+  rts_italicize="*"
+  rte_italicize="*"
+  rts_strickethrough="~~"
+  rte_strickethrough="~~"
+  rts_line=""
+  rte_line="\n"
+  unset characters_prepend
+  # NEED TO REVIEW :- characters_prepend not need for Discord
+}
+
 style_emailText () {
   rts_header=''
   rte_header=''
@@ -1558,7 +1613,7 @@ output_bodyString () {
       32)
         output_bodyString_temp=$(Characters_prepend "Time")
         output_messageBody+="$rts_line""$rts_italicize""$output_bodyString_temp""$rte_italicize""$output_bodyString_dbl"
-        output_bodyString_temp=$(Characters_prepend "$date_utc")
+        output_bodyString_temp=$(Characters_prepend "$cf_ddns_status_date_utc")
         output_messageBody+="$output_bodyString_temp""$rte_line"
         ;;
       64)
@@ -1717,6 +1772,7 @@ purge_main () {
 # (32)=File file_logPath
 # (64)=Telegram telegram_token, telegram_chatID
 # (128)=Nextcloud nextcloud_domain, nextcloud_username, nextcloud_apppass, nextcloud_roomtoken
+# (256)=Discord discorduri
 
   for ((purge_main_bitwise_lc=1, purge_main_bitwise_loop=1; purge_main_bitwise_loop <= $purge_set; purge_main_bitwise_loop=((purge_main_bitwise_loop << 1)), purge_main_bitwise_lc++)); do
     case $(($purge_main_bitwise_loop & $purge_set)) in
@@ -1751,6 +1807,10 @@ purge_main () {
       128)
         #purge nextcloud
         purge_nextcloud
+        ;;
+      256)
+        #purge discord
+        purge_discord
         ;;
       *)
         :
@@ -1813,6 +1873,11 @@ purge_nextcloud () {
   unset nextcloud_apppass
   unset nextcloud_roomtoken
 }
+
+purge_discord () {
+  unset discorduri
+}
+
 set_regex () {
   regex_ipv4='([01]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])\.([01]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])\.([01]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])\.([01]?[0-9]?[0-9]|2[0-4][0-9]|25[0-5])'
 }
@@ -1837,6 +1902,7 @@ get_bootid () {
 
 cf_kickstart () {
   check_install_command curl
+  check_install_command sed
   checkFor_WSL
   Check_isRoot
   set_regex
